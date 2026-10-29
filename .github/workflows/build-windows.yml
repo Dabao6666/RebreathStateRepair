@@ -1,0 +1,65 @@
+name: Build Windows SKSE DLL
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - '.github/workflows/build-windows.yml'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'PCH.h'
+      - 'src/**'
+      - 'vcpkg.json'
+      - 'vcpkg-configuration.json'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout plugin source
+        uses: actions/checkout@v4
+
+      - name: Checkout vcpkg
+        uses: actions/checkout@v4
+        with:
+          repository: microsoft/vcpkg
+          path: vcpkg
+
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "VCPKG_ROOT=$env:GITHUB_WORKSPACE\vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "VCPKG_DEFAULT_TRIPLET=x64-windows-static" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Configure (Visual Studio 2022 x64 + CommonLibSSE NG)
+        shell: pwsh
+        run: cmake --preset release
+
+      - name: Build Release DLL
+        shell: pwsh
+        run: cmake --build --preset release --config Release
+
+      - name: Verify DLL exists
+        shell: pwsh
+        run: |
+          $dll = Join-Path $env:GITHUB_WORKSPACE 'build/Release/RebreathStateRepair.dll'
+          if (!(Test-Path $dll)) {
+            Write-Error "Expected DLL was not produced at $dll"
+            Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'build') -Recurse -Filter '*.dll' | Select-Object -ExpandProperty FullName
+            exit 1
+          }
+          Get-Item $dll | Format-List FullName, Length, LastWriteTime
+
+      - name: Upload compiled plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: RebreathStateRepair-Windows-x64
+          path: build/Release/RebreathStateRepair.dll
+          if-no-files-found: error
+          retention-days: 14
