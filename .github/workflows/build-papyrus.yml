@@ -64,12 +64,20 @@ jobs:
         shell: pwsh
         run: |
           $vanilla = "$env:RUNNER_TEMP\SkyrimPapyrusSource"
-          $imports = "papyrus\CompileDependencies"
+          $imports = Join-Path $env:GITHUB_WORKSPACE "papyrus\CompileDependencies"
           $outDir = "$env:GITHUB_WORKSPACE\build\Scripts"
-          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-          $source = "papyrus\Data\Scripts\Source\RebreathAutoRepairAlias.psc"
-          & $env:CAPRICA_EXE "--game=skyrim" "--import=$vanilla" "--import=$imports" "--flags=$vanilla\TESV_Papyrus_Flags.flg" "--output=$outDir" $source
-          if ($LASTEXITCODE -ne 0) { throw "Caprica Papyrus compilation failed with exit code $LASTEXITCODE." }
+          $compilerSourceDir = "$env:RUNNER_TEMP\RebreathAutoRepairSource"
+          New-Item -ItemType Directory -Force -Path $outDir, $compilerSourceDir | Out-Null
+          Copy-Item "papyrus\Data\Scripts\Source\RebreathAutoRepairAlias.psc" "$compilerSourceDir\RebreathAutoRepairAlias.psc" -Force
+          Push-Location $compilerSourceDir
+          try {
+            & $env:CAPRICA_EXE "--game=skyrim" "--import=$vanilla" "--import=$imports" "--flags=$vanilla\TESV_Papyrus_Flags.flg" "--output=$outDir" "RebreathAutoRepairAlias.psc"
+            $compileExitCode = $LASTEXITCODE
+          }
+          finally {
+            Pop-Location
+          }
+          if ($compileExitCode -ne 0) { throw "Caprica Papyrus compilation failed with exit code $compileExitCode." }
           if (!(Test-Path "$outDir\RebreathAutoRepairAlias.pex")) {
             $found = Get-ChildItem -Path $outDir -Filter "RebreathAutoRepairAlias.pex" -Recurse
             if ($found.Count -eq 0) { throw "PEX output was not generated." }
