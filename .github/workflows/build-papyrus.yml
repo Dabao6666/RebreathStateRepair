@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: papyrus-cloud-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -25,11 +29,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
 
       - name: Fetch vanilla Papyrus source headers
         shell: pwsh
@@ -45,8 +44,18 @@ jobs:
           $archive = "$env:RUNNER_TEMP\Caprica.v0.3.0.7z"
           $extract = "$env:RUNNER_TEMP\Caprica"
           Invoke-WebRequest -Uri "https://github.com/Orvid/Caprica/releases/download/v0.3.0/Caprica.v0.3.0.7z" -OutFile $archive
-          python -m pip install --disable-pip-version-check py7zr
-          python -c "import py7zr; py7zr.SevenZipFile(r'$archive').extractall(path=r'$extract')"
+          $sevenZip = Join-Path $env:ProgramFiles "7-Zip\7z.exe"
+          if (!(Test-Path $sevenZip)) {
+            choco install 7zip.install --yes --no-progress
+          }
+          if (!(Test-Path $sevenZip)) {
+            $sevenZipCommand = Get-Command 7z.exe -ErrorAction SilentlyContinue
+            if ($null -eq $sevenZipCommand) { throw "7-Zip was not installed; cannot extract Caprica's BCJ2-compressed archive." }
+            $sevenZip = $sevenZipCommand.Source
+          }
+          New-Item -ItemType Directory -Force -Path $extract | Out-Null
+          & $sevenZip x $archive "-o$extract" -y
+          if ($LASTEXITCODE -ne 0) { throw "7-Zip failed to extract Caprica archive with exit code $LASTEXITCODE." }
           $exe = Get-ChildItem -Path $extract -Filter "Caprica.exe" -Recurse | Select-Object -First 1
           if ($null -eq $exe) { throw "Caprica.exe was not found after extraction." }
           "CAPRICA_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -82,7 +91,9 @@ jobs:
           Copy-Item "$env:GITHUB_WORKSPACE\build\Scripts\RebreathAutoRepairAlias.pex" "$modData\Scripts\RebreathAutoRepairAlias.pex" -Force
           Copy-Item "papyrus\Data\SKSE\Plugins\RebreathAutoRepair.ini" "$modData\SKSE\Plugins\RebreathAutoRepair.ini" -Force
           Copy-Item "papyrus\README_zh-CN.md" "$stage\安装说明_zh-CN.md" -Force
-          Copy-Item "papyrus\Docs\Logic_Audit_zh-CN.md" "$stage\逻辑审计_zh-CN.md" -Force
+          if (Test-Path "papyrus\Docs\Logic_Audit_zh-CN.md") {
+            Copy-Item "papyrus\Docs\Logic_Audit_zh-CN.md" "$stage\逻辑审计_zh-CN.md" -Force
+          }
           if (!(Test-Path "$modData\RebreathAutoRepair.esp")) { throw "ESP output missing." }
           if (!(Test-Path "$modData\Seq\RebreathAutoRepair.seq")) { throw "SEQ output missing." }
           if (!(Test-Path "$modData\Scripts\RebreathAutoRepairAlias.pex")) { throw "PEX output missing." }
