@@ -23,20 +23,20 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
     Int mySerial = 0
     String iniPath = "Data/SKSE/Plugins/RebreathAutoRepair.ini"
     Bool enabled = True
-    Float initFallbackDelay = 10.0
+    Float initFallbackDelay = 1.0
     Actor playerRef = None
     Bool waitFor3D = True
     Float maxWaitFor3D = 60.0
     Float pollInterval = 0.25
     Float waitedFor3D = 0.0
-    Float delayAfter3D = 5.0
+    Float delayAfter3D = 0.25
     Float rewaited = 0.0
     Bool doIdleStop = True
     Bool doStaggerStop = True
     Bool doMcoDodgeStop = False
     Bool doIdleCombatStart = False
     Int repairAttempts = 2
-    Float retryInterval = 3.0
+    Float retryInterval = 1.5
     Int attempt = 0
 
     _runSerial += 1
@@ -50,7 +50,7 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
         Return
     EndIf
 
-    initFallbackDelay = iniman.PullFloatFromIni(iniPath, "General", "InitFallbackDelay", 10.0)
+    initFallbackDelay = iniman.PullFloatFromIni(iniPath, "General", "InitFallbackDelay", 1.0)
     If initFallbackDelay < 0.0
         initFallbackDelay = 0.0
     ElseIf initFallbackDelay > 60.0
@@ -111,7 +111,7 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
         Return
     EndIf
 
-    delayAfter3D = iniman.PullFloatFromIni(iniPath, "General", "DelayAfter3D", 5.0)
+    delayAfter3D = iniman.PullFloatFromIni(iniPath, "General", "DelayAfter3D", 0.25)
     If delayAfter3D < 0.0
         delayAfter3D = 0.0
     ElseIf delayAfter3D > 120.0
@@ -154,7 +154,7 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
     ElseIf repairAttempts > 5
         repairAttempts = 5
     EndIf
-    retryInterval = iniman.PullFloatFromIni(iniPath, "General", "RetryInterval", 3.0)
+    retryInterval = iniman.PullFloatFromIni(iniPath, "General", "RetryInterval", 1.5)
     If retryInterval < 1.5
         retryInterval = 1.5
     ElseIf retryInterval > 30.0
