@@ -21,13 +21,18 @@ ModKey skyrimKey = ModKey.FromFileName("Skyrim.esm");
 FormKey playerRefKey = new FormKey(skyrimKey, 0x00000014);
 
 var mod = new SkyrimMod(pluginKey, SkyrimRelease.SkyrimSE);
-mod.ModHeader.MasterReferences.Add(new MasterReference { Master = skyrimKey });
 
-var quest = mod.Quests.AddNew("RebreathAutoRepairQuest");
-quest.Name = "Rebreath Auto Repair";
-quest.Priority = 60;
-quest.Flags |= Quest.Flag.StartGameEnabled;
-quest.NextAliasID = 1;
+// Create the quest with an allocated local FormID. Mutagen resolves the Skyrim.esm
+// master dependency automatically from the forced PlayerRef link when writing.
+var quest = new Quest(mod.GetNextFormKey(), SkyrimRelease.SkyrimSE)
+{
+    EditorID = "RebreathAutoRepairQuest",
+    Name = "Rebreath Auto Repair",
+    Priority = 60,
+    Flags = Quest.Flag.StartGameEnabled,
+    NextAliasID = 1,
+    VirtualMachineAdapter = new QuestAdapter()
+};
 
 var playerAlias = new QuestAlias
 {
@@ -38,7 +43,6 @@ var playerAlias = new QuestAlias
 playerAlias.ForcedReference.SetTo(playerRefKey);
 quest.Aliases.Add(playerAlias);
 
-var adapter = new QuestAdapter();
 var fragmentAlias = new QuestFragmentAlias
 {
     Property = new ScriptObjectProperty
@@ -53,8 +57,8 @@ fragmentAlias.Scripts.Add(new ScriptEntry
     Name = "RebreathAutoRepairAlias",
     Flags = ScriptEntry.Flag.Local
 });
-adapter.Aliases.Add(fragmentAlias);
-quest.VirtualMachineAdapter = adapter;
+quest.VirtualMachineAdapter.Aliases.Add(fragmentAlias);
+mod.Quests.Add(quest);
 
 string espPath = Path.Combine(dataDir, "RebreathAutoRepair.esp");
 mod.WriteToBinary(espPath);
