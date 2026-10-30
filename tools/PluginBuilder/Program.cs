@@ -89,8 +89,8 @@ if (loadedAlias.Type != QuestAlias.TypeEnum.Reference)
 if (loadedAlias.ForcedReference.FormKey != playerRefKey)
     throw new InvalidDataException($"PlayerAlias does not point to Skyrim.esm:00000014; got {loadedAlias.ForcedReference.FormKey}.");
 
-if (loadedQuest.VirtualMachineAdapter is not QuestAdapter loadedAdapter)
-    throw new InvalidDataException("Quest VMAD is missing or is not QuestAdapter.");
+if (loadedQuest.VirtualMachineAdapter is not IQuestAdapterGetter loadedAdapter)
+    throw new InvalidDataException("Quest VMAD is missing or is not a readable Quest adapter.");
 
 var loadedFragment = loadedAdapter.Aliases.SingleOrDefault(a => a.Property?.Alias == 0)
     ?? throw new InvalidDataException("Quest VMAD does not contain the PlayerAlias script binding.");
