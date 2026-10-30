@@ -1,0 +1,101 @@
+name: Build Papyrus Auto Repair Mod
+
+on:
+  push:
+    branches:
+      - papyrus-cloud-build
+    paths:
+      - "papyrus/**"
+      - "tools/PluginBuilder/**"
+      - ".github/workflows/build-papyrus.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch vanilla Papyrus source headers
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/Rukan/Grimy-Skyrim-Papyrus-Source.git "$env:RUNNER_TEMP\SkyrimPapyrusSource"
+          if (!(Test-Path "$env:RUNNER_TEMP\SkyrimPapyrusSource\TESV_Papyrus_Flags.flg")) {
+            throw "TESV_Papyrus_Flags.flg was not found in the vanilla source repository."
+          }
+
+      - name: Download and extract Caprica
+        shell: pwsh
+        run: |
+          $archive = "$env:RUNNER_TEMP\Caprica.v0.3.0.7z"
+          $extract = "$env:RUNNER_TEMP\Caprica"
+          Invoke-WebRequest -Uri "https://github.com/Orvid/Caprica/releases/download/v0.3.0/Caprica.v0.3.0.7z" -OutFile $archive
+          python -m pip install --disable-pip-version-check py7zr
+          python -c "import py7zr; py7zr.SevenZipFile(r'$archive').extractall(path=r'$extract')"
+          $exe = Get-ChildItem -Path $extract -Filter "Caprica.exe" -Recurse | Select-Object -First 1
+          if ($null -eq $exe) { throw "Caprica.exe was not found after extraction." }
+          "CAPRICA_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Compile Papyrus to PEX
+        shell: pwsh
+        run: |
+          $vanilla = "$env:RUNNER_TEMP\SkyrimPapyrusSource"
+          $imports = "papyrus\CompileDependencies"
+          $outDir = "$env:GITHUB_WORKSPACE\build\Scripts"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $source = "papyrus\Data\Scripts\Source\RebreathAutoRepairAlias.psc"
+          & $env:CAPRICA_EXE "--game=skyrim" "--import=$vanilla" "--import=$imports" "--flags=$vanilla\TESV_Papyrus_Flags.flg" "--output=$outDir" $source
+          if ($LASTEXITCODE -ne 0) { throw "Caprica Papyrus compilation failed with exit code $LASTEXITCODE." }
+          if (!(Test-Path "$outDir\RebreathAutoRepairAlias.pex")) {
+            $found = Get-ChildItem -Path $outDir -Filter "RebreathAutoRepairAlias.pex" -Recurse
+            if ($found.Count -eq 0) { throw "PEX output was not generated." }
+            Copy-Item $found[0].FullName "$outDir\RebreathAutoRepairAlias.pex" -Force
+          }
+
+      - name: Build and verify ESP plus SEQ
+        shell: pwsh
+        run: |
+          dotnet run --project tools\PluginBuilder\PluginBuilder.csproj --configuration Release -- "$env:GITHUB_WORKSPACE\build\stage"
+          if ($LASTEXITCODE -ne 0) { throw "ESP/SEQ build or validation failed." }
+
+      - name: Assemble MO2-ready mod
+        shell: pwsh
+        run: |
+          $stage = "$env:GITHUB_WORKSPACE\build\stage"
+          $modData = "$stage\Data"
+          New-Item -ItemType Directory -Force -Path "$modData\Scripts", "$modData\SKSE\Plugins", "$modData\Seq" | Out-Null
+          Copy-Item "$env:GITHUB_WORKSPACE\build\Scripts\RebreathAutoRepairAlias.pex" "$modData\Scripts\RebreathAutoRepairAlias.pex" -Force
+          Copy-Item "papyrus\Data\SKSE\Plugins\RebreathAutoRepair.ini" "$modData\SKSE\Plugins\RebreathAutoRepair.ini" -Force
+          Copy-Item "papyrus\README_zh-CN.md" "$stage\安装说明_zh-CN.md" -Force
+          Copy-Item "papyrus\Docs\Logic_Audit_zh-CN.md" "$stage\逻辑审计_zh-CN.md" -Force
+          if (!(Test-Path "$modData\RebreathAutoRepair.esp")) { throw "ESP output missing." }
+          if (!(Test-Path "$modData\Seq\RebreathAutoRepair.seq")) { throw "SEQ output missing." }
+          if (!(Test-Path "$modData\Scripts\RebreathAutoRepairAlias.pex")) { throw "PEX output missing." }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "$stage\*" -DestinationPath "dist\RebreathAutoRepair_MO2_v0.1.0.zip" -Force
+          Get-ChildItem -Path "$stage" -Recurse | Select-Object FullName,Length | Format-Table -AutoSize
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RebreathAutoRepair-MO2-v0.1.0
+          path: |
+            dist/RebreathAutoRepair_MO2_v0.1.0.zip
+            build/stage/Data
+          if-no-files-found: error
+          retention-days: 30
