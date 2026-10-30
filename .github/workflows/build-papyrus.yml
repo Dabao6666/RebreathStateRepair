@@ -98,7 +98,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$modData\Scripts", "$modData\SKSE\Plugins", "$modData\Seq" | Out-Null
           Copy-Item "$env:GITHUB_WORKSPACE\build\Scripts\RebreathAutoRepairAlias.pex" "$modData\Scripts\RebreathAutoRepairAlias.pex" -Force
           Copy-Item "papyrus\Data\SKSE\Plugins\RebreathAutoRepair.ini" "$modData\SKSE\Plugins\RebreathAutoRepair.ini" -Force
-          Copy-Item "papyrus\README_zh-CN.md" "$stage\安装说明_zh-CN.md" -Force
+          Copy-Item "papyrus\README_zh-CN.md" "$stage\README_zh-CN.md" -Force
           if (Test-Path "papyrus\Docs\Logic_Audit_zh-CN.md") {
             Copy-Item "papyrus\Docs\Logic_Audit_zh-CN.md" "$stage\逻辑审计_zh-CN.md" -Force
           }
