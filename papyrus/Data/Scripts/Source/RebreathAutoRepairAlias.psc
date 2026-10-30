@@ -42,15 +42,15 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
     _runSerial += 1
     mySerial = _runSerial
 
-    enabled = PapyrusIniManipulator.PullBoolFromIni(iniPath, "General", "Enabled", True)
-    _traceEnabled = PapyrusIniManipulator.PullBoolFromIni(iniPath, "Logging", "EnableTrace", True)
+    enabled = iniman.PullBoolFromIni(iniPath, "General", "Enabled", True)
+    _traceEnabled = iniman.PullBoolFromIni(iniPath, "Logging", "EnableTrace", True)
 
     If !enabled
         TraceLog("Disabled in INI; no action taken.")
         Return
     EndIf
 
-    initFallbackDelay = PapyrusIniManipulator.PullFloatFromIni(iniPath, "General", "InitFallbackDelay", 10.0)
+    initFallbackDelay = iniman.PullFloatFromIni(iniPath, "General", "InitFallbackDelay", 10.0)
     If initFallbackDelay < 0.0
         initFallbackDelay = 0.0
     ElseIf initFallbackDelay > 60.0
@@ -77,9 +77,9 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
         Return
     EndIf
 
-    waitFor3D = PapyrusIniManipulator.PullBoolFromIni(iniPath, "General", "WaitFor3D", True)
-    maxWaitFor3D = PapyrusIniManipulator.PullFloatFromIni(iniPath, "General", "MaxWaitFor3D", 60.0)
-    pollInterval = PapyrusIniManipulator.PullFloatFromIni(iniPath, "General", "PollInterval", 0.25)
+    waitFor3D = iniman.PullBoolFromIni(iniPath, "General", "WaitFor3D", True)
+    maxWaitFor3D = iniman.PullFloatFromIni(iniPath, "General", "MaxWaitFor3D", 60.0)
+    pollInterval = iniman.PullFloatFromIni(iniPath, "General", "PollInterval", 0.25)
 
     If maxWaitFor3D < 0.0
         maxWaitFor3D = 0.0
@@ -111,7 +111,7 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
         Return
     EndIf
 
-    delayAfter3D = PapyrusIniManipulator.PullFloatFromIni(iniPath, "General", "DelayAfter3D", 5.0)
+    delayAfter3D = iniman.PullFloatFromIni(iniPath, "General", "DelayAfter3D", 5.0)
     If delayAfter3D < 0.0
         delayAfter3D = 0.0
     ElseIf delayAfter3D > 120.0
@@ -143,18 +143,18 @@ Function StartRepairCycle(Bool abUseFirstInstallFallback)
         EndIf
     EndIf
 
-    doIdleStop = PapyrusIniManipulator.PullBoolFromIni(iniPath, "Events", "IdleStop", True)
-    doStaggerStop = PapyrusIniManipulator.PullBoolFromIni(iniPath, "Events", "StaggerStop", True)
-    doMcoDodgeStop = PapyrusIniManipulator.PullBoolFromIni(iniPath, "Events", "MCODodgeStop", False)
-    doIdleCombatStart = PapyrusIniManipulator.PullBoolFromIni(iniPath, "Events", "IdleCombatStart", False)
+    doIdleStop = iniman.PullBoolFromIni(iniPath, "Events", "IdleStop", True)
+    doStaggerStop = iniman.PullBoolFromIni(iniPath, "Events", "StaggerStop", True)
+    doMcoDodgeStop = iniman.PullBoolFromIni(iniPath, "Events", "MCODodgeStop", False)
+    doIdleCombatStart = iniman.PullBoolFromIni(iniPath, "Events", "IdleCombatStart", False)
 
-    repairAttempts = PapyrusIniManipulator.PullIntFromIni(iniPath, "General", "RepairAttempts", 2)
+    repairAttempts = iniman.PullIntFromIni(iniPath, "General", "RepairAttempts", 2)
     If repairAttempts < 1
         repairAttempts = 1
     ElseIf repairAttempts > 5
         repairAttempts = 5
     EndIf
-    retryInterval = PapyrusIniManipulator.PullFloatFromIni(iniPath, "General", "RetryInterval", 3.0)
+    retryInterval = iniman.PullFloatFromIni(iniPath, "General", "RetryInterval", 3.0)
     If retryInterval < 1.5
         retryInterval = 1.5
     ElseIf retryInterval > 30.0
