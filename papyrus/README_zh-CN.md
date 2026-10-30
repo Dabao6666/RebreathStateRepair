@@ -4,7 +4,7 @@
 
 ## 运行依赖
 - Skyrim SE/AE 对应版本 SKSE
-- Papyrus Ini Manipulator（提供独立 INI 读取函数；其 PEX 和 SKSE DLL 由独立依赖 Mod 提供，不在本压缩包内）
+- Papyrus Ini Manipulator（提供 `iniman` 原生 INI 读取函数；其 `iniman.pex` 和 SKSE DLL 由独立依赖 Mod 提供，不在本压缩包内）
 
 ## 安装
 将压缩包内 Data 文件夹内容作为 MO2 独立 Mod 安装，并在右侧启用 RebreathAutoRepair.esp。
