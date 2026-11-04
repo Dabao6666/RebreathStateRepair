@@ -1,0 +1,101 @@
+name: Build Rebreath Auto Repair Papyrus PEX
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'PapyrusAutoRepair/**'
+      - '.github/workflows/build-papyrus-pex.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile-papyrus:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Checkout SKSE Papyrus headers
+        uses: actions/checkout@v4
+        with:
+          repository: ianpatt/skse64
+          ref: 25b72352adb6543fa6d0bd3795780672b2e238e0
+          path: _deps/skse64
+
+      - name: Prepare headers
+        shell: pwsh
+        run: |
+          $headers = Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Build/Headers'
+          New-Item -ItemType Directory -Force -Path $headers | Out-Null
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE '_deps/skse64/scripts/vanilla/*.psc') $headers -Force
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE '_deps/skse64/scripts/modified/*.psc') $headers -Force
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Headers/Debug.psc') $headers -Force
+          $required = @('Alias.psc','ReferenceAlias.psc','Actor.psc','ObjectReference.psc','Game.psc','Utility.psc','UI.psc','Debug.psc')
+          foreach ($name in $required) {
+            if (!(Test-Path (Join-Path $headers $name))) { throw "Missing Papyrus header: $name" }
+          }
+          Write-Host "Prepared $((Get-ChildItem $headers -Filter '*.psc').Count) headers."
+
+      - name: Download Papyrus Compiler
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'papyrus-compiler-windows.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'papyrus-compiler'
+          $url = 'https://github.com/russo-2025/papyrus-compiler/releases/download/2026.03.15/papyrus-compiler-windows.zip'
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $extract -Force
+          $compiler = Get-ChildItem -Path $extract -Filter 'papyrus-compiler.exe' -Recurse | Select-Object -First 1
+          if (!$compiler) { throw 'papyrus-compiler.exe not found.' }
+          "PAPYRUS_COMPILER=$($compiler.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Compile and read back PEX
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Build/Compiled'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $headers = Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Build/Headers'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Source'
+          & $env:PAPYRUS_COMPILER compile -nocache -h $headers -i $source -o $out
+          if ($LASTEXITCODE -ne 0) { throw "Papyrus compile failed: $LASTEXITCODE" }
+          $pex = Join-Path $out 'RebreathAutoRepairAlias.pex'
+          if (!(Test-Path $pex)) { throw 'PEX output missing.' }
+          if ((Get-Item $pex).Length -lt 256) { throw 'PEX output unexpectedly small.' }
+          $disassembly = Join-Path $out 'RebreathAutoRepairAlias.disassembly.txt'
+          & $env:PAPYRUS_COMPILER read $pex | Out-File -FilePath $disassembly -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'PEX read-back failed.' }
+          $dump = Get-Content $disassembly -Raw
+          if ($dump -notmatch 'OnKeyDown') { throw 'PEX read-back lacks OnKeyDown.' }
+          if ($dump -notmatch 'MCO_DodgeStop') { throw 'PEX read-back lacks MCO_DodgeStop.' }
+          Get-FileHash $pex -Algorithm SHA256 | Format-List
+          Get-Item $pex | Format-List FullName,Length
+
+      - name: Assemble MO2 archive
+        shell: pwsh
+        run: |
+          $root = $env:GITHUB_WORKSPACE
+          $stage = Join-Path $root 'PapyrusAutoRepair/Build/MO2/Rebreath Auto Repair v0.1.5'
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Data/Scripts') | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Data/Seq') | Out-Null
+          Copy-Item (Join-Path $root 'PapyrusAutoRepair/BasePlugin/Data/RebreathAutoRepair.esp') (Join-Path $stage 'Data/') -Force
+          Copy-Item (Join-Path $root 'PapyrusAutoRepair/BasePlugin/Data/Seq/RebreathAutoRepair.esp.seq') (Join-Path $stage 'Data/Seq/') -Force
+          Copy-Item (Join-Path $root 'PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.pex') (Join-Path $stage 'Data/Scripts/') -Force
+          Copy-Item (Join-Path $root 'PapyrusAutoRepair/README_v0.1.5_zh-CN.md') (Join-Path $stage '安装说明_zh-CN.md') -Force
+          $zip = Join-Path $root 'PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.1.5.zip'
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
+          Get-FileHash $zip -Algorithm SHA256 | Format-List
+          Get-Item $zip | Format-List FullName,Length
+
+      - name: Upload compiled PEX and MO2 ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: RebreathAutoRepair-v0.1.5-MO2
+          path: |
+            PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.pex
+            PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.disassembly.txt
+            PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.1.5.zip
+          if-no-files-found: error
+          retention-days: 30
