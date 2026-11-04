@@ -1,5 +1,9 @@
 Scriptname RebreathAutoRepairAlias extends ReferenceAlias
 
+; Rebreath Auto Repair v0.2.0
+; Save-load cleanup for SCSI Magic of Tamriel + original Elden Rim Rebreath reset.
+; This patch does not cast spells, play Taunt, alter races, or write mod globals.
+
 Int _runSerial = 0
 Bool _receivedPlayerLoadEvent = False
 Bool _busy = False
@@ -70,7 +74,7 @@ Event OnKeyDown(Int keyCode)
     mySerial = _runSerial
     _busy = True
     _autoPending = False
-    Debug.Notification("Rebreath Auto Repair: O received; sending original events.")
+    Debug.Notification("Rebreath Auto Repair: O received; clearing SCSI states and sending original events.")
     TraceLog("Manual O test started.")
     ExecuteRepairSequence(playerRef, mySerial, "manual O")
 EndEvent
@@ -169,7 +173,7 @@ Function StartAutomaticCycle(Bool useFirstInstallFallback)
         Return
     EndIf
     _autoPending = False
-    TraceLog("Automatic countdown complete; dispatching original four events.")
+    TraceLog("Automatic countdown complete; clearing SCSI states and dispatching original four events.")
     ExecuteRepairSequence(playerRef, mySerial, "automatic after post-load gate")
 EndFunction
 
@@ -205,6 +209,7 @@ Bool Function IsGameplayReady(Actor playerRef)
 EndFunction
 
 Function ExecuteRepairSequence(Actor playerRef, Int mySerial, String triggerSource)
+    Float playerHealth
     If mySerial != _runSerial
         Return
     EndIf
@@ -214,25 +219,48 @@ Function ExecuteRepairSequence(Actor playerRef, Int mySerial, String triggerSour
         _autoPending = False
         Return
     EndIf
+
+    ; SCSI_MagicBlockingScript sets IsBlocking=True in OnEffectStart and clears
+    ; it only in OnEffectFinish. Saving/loading can expose a stale animation var.
+    ; A loaded player is no longer sustaining a ward cast, so clear this flag.
+    playerHealth = playerRef.GetActorValue("Health")
+    If playerHealth > 0.0
+        playerRef.SetAnimationVariableBool("IsBlocking", False)
+        TraceLog(triggerSource + ": cleared SCSI IsBlocking animation variable.")
+
+        ; SCSI_AddBleedoutFX_Target pairs bleedOutStart with bleedOutStop.
+        ; Only send the stop event for a living player.
+        Debug.SendAnimationEvent(playerRef, "bleedOutStop")
+        TraceLog(triggerSource + ": sent SCSI bleedOutStop")
+    Else
+        TraceLog(triggerSource + ": skipped SCSI animation cleanup because player Health <= 0.")
+    EndIf
+
+    ; Exact original event order from EldenRebreatheAttacks.pex.
     Debug.SendAnimationEvent(playerRef, "IdleStop")
     TraceLog(triggerSource + ": sent IdleStop")
+
     Debug.SendAnimationEvent(playerRef, "staggerStop")
     TraceLog(triggerSource + ": sent staggerStop")
+
     Debug.SendAnimationEvent(playerRef, "MCO_DodgeStop")
     TraceLog(triggerSource + ": sent MCO_DodgeStop")
+
     Debug.SendAnimationEvent(playerRef, "IdleCombatStart")
     TraceLog(triggerSource + ": sent IdleCombatStart")
+
     If triggerSource == "manual O"
-        Debug.Notification("Rebreath Auto Repair: 4 original events sent. Check the character now.")
+        Debug.Notification("Rebreath Auto Repair: SCSI cleanup + 4 original events sent. Check the character now.")
     EndIf
+
     Utility.Wait(1.5)
     If mySerial == _runSerial
-        TraceLog(triggerSource + ": four events dispatched; sequence finished.")
+        TraceLog(triggerSource + ": SCSI cleanup and four Rebreath events dispatched; sequence finished.")
         _busy = False
         _autoPending = False
     EndIf
 EndFunction
 
 Function TraceLog(String message)
-    Debug.Trace("[RebreathAutoRepair v0.1.6] " + message, 0)
+    Debug.Trace("[RebreathAutoRepair v0.2.0] " + message, 0)
 EndFunction
