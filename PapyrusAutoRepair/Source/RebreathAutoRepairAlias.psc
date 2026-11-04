@@ -234,5 +234,5 @@ Function ExecuteRepairSequence(Actor playerRef, Int mySerial, String triggerSour
 EndFunction
 
 Function TraceLog(String message)
-    Debug.Trace("[RebreathAutoRepair v0.1.5] " + message, 0)
+    Debug.Trace("[RebreathAutoRepair v0.1.6] " + message, 0)
 EndFunction
