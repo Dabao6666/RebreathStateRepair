@@ -86,6 +86,8 @@ jobs:
           $dump = Get-Content $disassembly -Raw
           if ($dump -notmatch 'OnKeyDown') { throw 'PEX read-back lacks OnKeyDown.' }
           if ($dump -notmatch 'MCO_DodgeStop') { throw 'PEX read-back lacks MCO_DodgeStop.' }
+          if ($dump -notmatch 'SetAnimationVariableBool') { throw 'PEX read-back lacks SCSI IsBlocking cleanup.' }
+          if ($dump -notmatch 'bleedOutStop') { throw 'PEX read-back lacks SCSI bleedOutStop cleanup.' }
           Get-FileHash $pex -Algorithm SHA256 | Format-List
           Get-Item $pex | Format-List FullName,Length
 
@@ -146,14 +148,14 @@ jobs:
         shell: pwsh
         run: |
           $root = $env:GITHUB_WORKSPACE
-          $stage = Join-Path $root 'PapyrusAutoRepair/Build/MO2/Rebreath Auto Repair v0.1.6'
+          $stage = Join-Path $root 'PapyrusAutoRepair/Build/MO2/Rebreath Auto Repair v0.2.0'
           New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Data/Scripts') | Out-Null
           New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Data/Seq') | Out-Null
           Copy-Item (Join-Path $root 'PapyrusAutoRepair/BasePlugin/Data/RebreathAutoRepair.esp') (Join-Path $stage 'Data/') -Force
           Copy-Item (Join-Path $root 'PapyrusAutoRepair/BasePlugin/Data/Seq/RebreathAutoRepair.esp.seq') (Join-Path $stage 'Data/Seq/') -Force
           Copy-Item (Join-Path $root 'PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.pex') (Join-Path $stage 'Data/Scripts/') -Force
-          Copy-Item (Join-Path $root 'PapyrusAutoRepair/README_v0.1.6_zh-CN.md') (Join-Path $stage 'README_zh-CN.txt') -Force
-          $zip = Join-Path $root 'PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.1.6.zip'
+          Copy-Item (Join-Path $root 'PapyrusAutoRepair/README_v0.2.0_zh-CN.md') (Join-Path $stage 'README_zh-CN.txt') -Force
+          $zip = Join-Path $root 'PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.2.0.zip'
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
           Get-FileHash $zip -Algorithm SHA256 | Format-List
@@ -162,10 +164,10 @@ jobs:
       - name: Upload compiled PEX and MO2 ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RebreathAutoRepair-v0.1.6-MO2
+          name: RebreathAutoRepair-v0.2.0-MO2
           path: |
             PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.pex
             PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.disassembly.txt
-            PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.1.6.zip
+            PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.2.0.zip
           if-no-files-found: error
           retention-days: 30
