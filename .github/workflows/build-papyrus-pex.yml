@@ -103,7 +103,7 @@ jobs:
           if ([System.Text.Encoding]::ASCII.GetString($esp, $groupOffset + 8, 4) -ne 'QUST') { throw 'First ESP group is not QUST.' }
           $questOffset = $groupOffset + 24
           if ([System.Text.Encoding]::ASCII.GetString($esp, $questOffset, 4) -ne 'QUST') { throw 'QUST record signature is missing.' }
-          $questFormId = [BitConverter]::ToUInt32($esp, $questOffset + 8)
+          $questFormId = [BitConverter]::ToUInt32($esp, $questOffset + 12)
           if ($questFormId -ne 0x01000800) { throw ('Unexpected Quest FormID: 0x{0:X8}' -f $questFormId) }
           $questSize = [BitConverter]::ToUInt32($esp, $questOffset + 4)
           $cursor = $questOffset + 24
@@ -111,6 +111,7 @@ jobs:
           $startEnabled = $false
           $hasAliasScript = $false
           $hasPlayerAlias = $false
+          $hasForcedPlayerRef = $false
           while ($cursor -lt $questEnd) {
             $subName = [System.Text.Encoding]::ASCII.GetString($esp, $cursor, 4)
             $subSize = [BitConverter]::ToUInt16($esp, $cursor + 4)
@@ -127,11 +128,16 @@ jobs:
               $aliasName = [System.Text.Encoding]::ASCII.GetString($esp, $subStart, $subSize).Trim([char]0)
               if ($aliasName -eq 'PlayerAlias') { $hasPlayerAlias = $true }
             }
+            if ($subName -eq 'ALFR' -and $subSize -eq 4) {
+              $forcedRef = [BitConverter]::ToUInt32($esp, $subStart)
+              if ($forcedRef -eq 0x14) { $hasForcedPlayerRef = $true }
+            }
             $cursor = $subStart + $subSize
           }
           if (!$startEnabled) { throw 'Quest is not Start Game Enabled.' }
           if (!$hasAliasScript) { throw 'Quest VMAD does not bind RebreathAutoRepairAlias.' }
           if (!$hasPlayerAlias) { throw 'Quest does not contain PlayerAlias.' }
+          if (!$hasForcedPlayerRef) { throw 'PlayerAlias is not forced to Skyrim PlayerRef 0x14.' }
           $seq = [System.IO.File]::ReadAllBytes($seqPath)
           if ([Convert]::ToHexString($seq) -ne '00080001') { throw ('SEQ FormID is wrong: ' + [Convert]::ToHexString($seq)) }
           Write-Host 'ESP TES4 header, QUST FormID, Start Game Enabled, PlayerAlias VMAD and SEQ FormID checks passed.'
