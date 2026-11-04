@@ -154,7 +154,7 @@ jobs:
           Copy-Item (Join-Path $root 'PapyrusAutoRepair/BasePlugin/Data/RebreathAutoRepair.esp') (Join-Path $stage 'Data/') -Force
           Copy-Item (Join-Path $root 'PapyrusAutoRepair/BasePlugin/Data/Seq/RebreathAutoRepair.esp.seq') (Join-Path $stage 'Data/Seq/') -Force
           Copy-Item (Join-Path $root 'PapyrusAutoRepair/Build/Compiled/RebreathAutoRepairAlias.pex') (Join-Path $stage 'Data/Scripts/') -Force
-          Copy-Item (Join-Path $root 'PapyrusAutoRepair/README_v0.2.0_zh-CN.md') (Join-Path $stage 'README_zh-CN.txt') -Force
+          Copy-Item (Join-Path $root 'PapyrusAutoRepair/README_v0.1.6_zh-CN.md') (Join-Path $stage 'README_zh-CN.txt') -Force
           $zip = Join-Path $root 'PapyrusAutoRepair/Build/RebreathAutoRepair_MO2_v0.2.0.zip'
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -CompressionLevel Optimal
