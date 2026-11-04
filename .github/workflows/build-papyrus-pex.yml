@@ -25,19 +25,33 @@ jobs:
           ref: 25b72352adb6543fa6d0bd3795780672b2e238e0
           path: _deps/skse64
 
-      - name: Prepare headers
+      - name: Prepare merged Papyrus import headers
         shell: pwsh
         run: |
           $headers = Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Build/Headers'
+          $vanilla = Join-Path $env:GITHUB_WORKSPACE '_deps/skse64/scripts/vanilla'
+          $modified = Join-Path $env:GITHUB_WORKSPACE '_deps/skse64/scripts/modified'
           New-Item -ItemType Directory -Force -Path $headers | Out-Null
-          Copy-Item (Join-Path $env:GITHUB_WORKSPACE '_deps/skse64/scripts/vanilla/*.psc') $headers -Force
-          Copy-Item (Join-Path $env:GITHUB_WORKSPACE '_deps/skse64/scripts/modified/*.psc') $headers -Force
-          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Headers/Debug.psc') $headers -Force
+          Copy-Item (Join-Path $vanilla '*.psc') $headers -Force
+          Get-ChildItem $modified -Filter '*.psc' | ForEach-Object {
+            $name = $_.Name
+            $base = Join-Path $vanilla $name
+            $target = Join-Path $headers $name
+            if (Test-Path $base) {
+              $merged = (Get-Content $base -Raw) + "`r`n`r`n; SKSE additions`r`n" + (Get-Content $_.FullName -Raw)
+              Set-Content -Path $target -Value $merged -Encoding utf8
+            } else {
+              Copy-Item $_.FullName $target -Force
+            }
+          }
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'PapyrusAutoRepair/Headers/Debug.psc') (Join-Path $headers 'Debug.psc') -Force
           $required = @('Alias.psc','ReferenceAlias.psc','Actor.psc','ObjectReference.psc','Game.psc','Utility.psc','UI.psc','Debug.psc')
           foreach ($name in $required) {
             if (!(Test-Path (Join-Path $headers $name))) { throw "Missing Papyrus header: $name" }
           }
-          Write-Host "Prepared $((Get-ChildItem $headers -Filter '*.psc').Count) headers."
+          if ((Get-Content (Join-Path $headers 'Alias.psc') -Raw) -notmatch 'RegisterForKey') { throw 'Merged Alias header lacks SKSE RegisterForKey.' }
+          if ((Get-Content (Join-Path $headers 'Alias.psc') -Raw) -notmatch 'RegisterForMenu') { throw 'Merged Alias header lacks SKSE RegisterForMenu.' }
+          Write-Host "Prepared $((Get-ChildItem $headers -Filter '*.psc').Count) merged headers."
 
       - name: Download Papyrus Compiler
         shell: pwsh
